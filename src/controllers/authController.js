@@ -198,18 +198,32 @@ exports.refreshAccessToken = catchAsync(async (req, res, next) => {
 
 // Social Auth
 exports.socialLoginHandler = catchAsync(async (req, res, next) => {
-  if (!req.user) {
+  const user = req.user;
+
+  if (!user) {
     return next(new ApiError("Authentication failed", 401));
   }
-  const token = createToken(req.user, req, res);
-  await refreshToken(req.user, req, res);
+
+  // If 2FA is enabled, require verification before issuing a token
+  if (user.twoFactorEnabled) {
+    const tempToken = generateTempToken(user.id);
+    return res.status(200).json({
+      status: "2fa-required",
+      token: tempToken,
+      message: "Two-factor authentication required",
+    });
+  }
+
+  // No 2FA? Issue token immediately
+  const token = createToken(user, req, res);
+  await refreshToken(user, req, res);
 
   res.status(200).json({
     status: "success",
     token,
-    message: `${req.user.provider} login successful`,
+    message: `${user.provider} login successful`,
     data: {
-      user: sanitizeUser(req.user),
+      user: sanitizeUser(user),
     },
   });
 });
