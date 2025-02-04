@@ -1,0 +1,11 @@
+# define services: the services that are available for this application
+services:
+  node-app:
+    build:
+      context: .
+      target: development
+    volumes:
+      - ./src:/app/src:ro
+    environment:
+      - NODE_ENV=development
+    command: npm run start-dev

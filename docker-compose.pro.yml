@@ -1,0 +1,10 @@
+# define services: the services that are available for this application
+services:
+  node-app:
+    build:
+      context: .
+      target: production
+    # node-app service configuration
+    environment:
+      - NODE_ENV=production
+    command: npm start

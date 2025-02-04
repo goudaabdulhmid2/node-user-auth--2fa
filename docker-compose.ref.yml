@@ -1,0 +1,12 @@
+# define services: the services that are available for this application
+services:
+  node-app:
+    # node-app service configuration
+    container_name: express-node-app-container
+    build: .
+    volumes:
+      - ./src:/app/src:ro
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./config.env
