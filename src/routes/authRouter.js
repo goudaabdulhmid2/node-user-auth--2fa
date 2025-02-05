@@ -10,7 +10,6 @@ const {
   logout,
   socialLoginHandler,
   setup2FA,
-  authStatus,
   verify2FA,
   reset2FA,
   generateBackupCode,
@@ -19,6 +18,9 @@ const {
   verifyRecoveryOTP,
   requestRecoverySMS,
   verifyRecoverySMS,
+  forgetPassword,
+  verifyResetCode,
+  resetPassword,
 } = require("../controllers/authController");
 const {
   signupValidator,
@@ -62,6 +64,11 @@ router.get(
 router.post("/signup", signupValidator, signup);
 router.post("/login", loginValidator, login);
 router.post("/refresh-token", refreshAccessToken);
+
+// Reset password
+router.post("/forgotPassword", forgetPassword);
+router.post("/verifyResetCode", verifyResetCode);
+router.post("/resetPassword", resetPassword);
 
 // ======================
 // Protected Routes

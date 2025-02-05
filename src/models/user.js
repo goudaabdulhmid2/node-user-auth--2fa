@@ -58,6 +58,10 @@ const userSchema = new mongoose.Schema(
       default: true,
     },
     passwordChangedAt: Date,
+    passwordResetCode: String,
+    passwordResetExpires: Date,
+    passwordResetVerify: Boolean,
+    passwordResetLastRequest: Date,
 
     // 2FA
     twoFactorEnabled: { type: Boolean, default: false },
@@ -91,6 +95,13 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+// Check password change
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || this.isNew) return next();
+  this.passwordChangedAt = new Date() - 1000;
+  next();
+});
+
 // Check Password
 userSchema.methods.correctPassword = async function (
   candidatePassword,
@@ -114,13 +125,13 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
 };
 
 // Hash backup code before storing
-userSchema.methods.hashBackupCode = function (code) {
+userSchema.statics.hashBackupCode = function (code) {
   return crypto.createHash("sha256").update(code).digest("hex");
 };
 
 // Verify backup code
 userSchema.methods.verifyBackupCode = function (code) {
-  const hashedCode = this.hashBackupCode(code);
+  const hashedCode = this.constructor.hashBackupCode(code);
   const index = this.backupCodes.indexOf(hashedCode);
   if (index === -1) return false;
 

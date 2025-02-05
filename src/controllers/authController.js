@@ -16,6 +16,8 @@ const ApiError = require("../utlis/ApiError");
 const Email = require("../utlis/Email");
 const SMS = require("../utlis/SMS");
 
+const generateRandomCode = () => crypto.randomInt(100000, 999999).toString();
+
 // Core Auth
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create({
@@ -322,7 +324,7 @@ exports.generateBackupCode = catchAsync(async (req, res, next) => {
   );
 
   // Hash codes before storing
-  user.backupCodes = codes.map((code) => user.hashBackupCode(code));
+  user.backupCodes = codes.map((code) => User.hashBackupCode(code));
   await user.save({ validateBeforeSave: false });
 
   res.status(200).json({
@@ -372,10 +374,10 @@ exports.requestRecoveryOTP = catchAsync(async (req, res, next) => {
   }
 
   // Genrat OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = generateRandomCode();
 
   // Store otp in db
-  user.twoFactorRecoveryOTP = user.hashBackupCode(otp);
+  user.twoFactorRecoveryOTP = User.hashBackupCode(otp);
   user.twoFactorRecoveryExpires = new Date(Date.now() + 5 * 60 * 1000); // Valid for 5 minutes
   user.twoFactorLastRequest = new Date(); // Track last request time
   await user.save({ validateBeforeSave: false });
@@ -413,7 +415,7 @@ exports.verifyRecoveryOTP = catchAsync(async (req, res, next) => {
   }
 
   // Verify OTP
-  if (user.hashBackupCode(otp) !== user.twoFactorRecoveryOTP) {
+  if (User.hashBackupCode(otp) !== user.twoFactorRecoveryOTP) {
     return next(new ApiError("Invalid OTP", 401));
   }
 
@@ -456,10 +458,10 @@ exports.requestRecoverySMS = catchAsync(async (req, res, next) => {
   }
 
   // Genrate OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = generateRandomCode();
 
   // Store OTP
-  user.twoFactorRecoveryOTP = user.hashBackupCode(otp);
+  user.twoFactorRecoveryOTP = User.hashBackupCode(otp);
   user.twoFactorRecoveryExpires = new Date(Date.now() + 5 * 60 * 1000); // Valid for 5 min
   user.twoFactorLastRequest = new Date();
   await user.save({ validateBeforeSave: false });
@@ -497,7 +499,7 @@ exports.verifyRecoverySMS = catchAsync(async (req, res, next) => {
   }
 
   // Verify OTP
-  if (user.hashBackupCode(otp) !== user.twoFactorRecoveryOTP) {
+  if (User.hashBackupCode(otp) !== user.twoFactorRecoveryOTP) {
     return next(new ApiError("Invalid OTP", 401));
   }
 
@@ -515,5 +517,141 @@ exports.verifyRecoverySMS = catchAsync(async (req, res, next) => {
     status: "success",
     token,
     message: "2FA bypassed using recovery SMS",
+  });
+});
+
+// Reset password
+
+// @desc forgot password
+// @route POST api/v1/auth/forgotPassword
+// @access Public
+exports.forgetPassword = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+
+  // Get user based on email
+  const user = await User.findOne({ email });
+  if (!user) {
+    return next(new ApiError("No user found with that email", 404));
+  }
+
+  // OAuth Users cannot reset password
+  if (user.provider !== "local") {
+    return next(
+      new ApiError(
+        "Cannot reset password for social login users. Use Google/Facebook recovery.",
+        400
+      )
+    );
+  }
+
+  // Prevernt spam: Allow only one requset per time
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+  if (
+    user.passwordResetLastRequest &&
+    oneMinuteAgo < user.passwordResetLastRequest
+  ) {
+    // 429 Too many requset
+    return next(new ApiError("Please wait before requesting another OTP", 429));
+  }
+
+  // Genrate OTP
+  const otp = generateRandomCode();
+
+  // Hash the OTP before storing it
+  user.passwordResetCode = User.hashBackupCode(otp);
+  user.passwordResetExpires = Date.now() + 5 * 60 * 1000;
+  user.passwordResetVerify = false;
+  user.passwordResetLastRequest = new Date();
+  await user.save({ validateBeforeSave: false });
+
+  try {
+    // Send OTP to user via email
+    await new Email(user, otp).senPasswordReset();
+    res.status(200).json({
+      status: "success",
+      message: "Password reset Code sent to email",
+    });
+  } catch (err) {
+    user.passwordResetCode = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordResetLastRequest = undefined;
+    user.passwordResetVerify = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(new ApiError("Failed to send email. Try again letter!", 500));
+  }
+});
+
+// @desc verify reset code
+// @route POST api/v1/auth/verifyResetCode
+// @access Public
+exports.verifyResetCode = catchAsync(async (req, res, next) => {
+  const { otp } = req.body;
+
+  // Hash the OTP before checking it
+  const hashOtp = User.hashBackupCode(otp);
+
+  // Get user based on code
+  const user = await User.findOne({
+    passwordResetCode: hashOtp,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new ApiError("Reset code is invalid or expired.", 400));
+  }
+
+  // Delete reset code after verification
+  user.passwordResetVerify = true;
+  user.passwordResetCode = undefined;
+  user.passwordResetLastRequest = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: "success",
+    message: "Reset code is valid.",
+  });
+});
+
+// @desc reset password
+// @route POST api/v1/auth/resetPassword
+// @access Public
+exports.resetPassword = catchAsync(async (req, res, next) => {
+  const { email, newPassword } = req.body;
+
+  // Find user by email and ensure reset code was verified
+  const user = await User.findOne({
+    email,
+    passwordResetVerify: true,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new ApiError("Invalid or expired reset token", 400));
+  }
+  user.password = newPassword;
+  user.passwordResetCode = undefined;
+  user.passwordResetExpires = undefined;
+  user.passwordResetVerify = undefined;
+  await user.save();
+
+  // Handle 2FA
+  if (user.twoFactorEnabled) {
+    const tempToken = generateTempToken(user.id);
+    return res.status(200).json({
+      status: "2fa-required",
+      token: tempToken,
+      message:
+        "Password has been reset successfully, Two-factor authentication required",
+    });
+  }
+
+  //  Issue full JWT if no 2FA is required
+  const token = createToken(user, req, res);
+  await refreshToken(user, req, res);
+
+  res.status(200).json({
+    status: "success",
+    token,
+    message: "Password has been reset successfully",
   });
 });
