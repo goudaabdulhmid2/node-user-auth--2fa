@@ -58,6 +58,8 @@ const userSchema = new mongoose.Schema(
       default: true,
     },
     passwordChangedAt: Date,
+
+    // Reset Password
     passwordResetCode: String,
     passwordResetExpires: Date,
     passwordResetVerify: Boolean,
@@ -139,5 +141,6 @@ userSchema.methods.verifyBackupCode = function (code) {
   this.backupCodes.splice(index, 1);
   return true;
 };
+
 const User = mongoose.model("User", userSchema);
 module.exports = User;

@@ -52,6 +52,7 @@ class Email {
     transport.close();
     return result;
   });
+
   // Password reset email
   async senPasswordReset() {
     const message = `
@@ -78,6 +79,7 @@ class Email {
     );
   }
 
+  // Welcome email to new user
   async sendWelcome() {
     const message = `
       Hi, ${this.firstname}
@@ -96,6 +98,7 @@ class Email {
     await this.send(message, "Welcome to the HealthMate Family!");
   }
 
+  // Two factor recovery email
   async sendTwoFactorRecovery() {
     const message = `
     Hello ${this.firstname},

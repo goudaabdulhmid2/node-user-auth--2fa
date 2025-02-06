@@ -18,7 +18,13 @@ const SMS = require("../utlis/SMS");
 
 const generateRandomCode = () => crypto.randomInt(100000, 999999).toString();
 
-// Core Auth
+/*
+ **** Core Auth ****
+ */
+
+// @desc Register a new user account
+// @route POST /api/v1/auth/signup
+// @access Public
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create({
     name: req.body.name,
@@ -41,6 +47,9 @@ exports.signup = catchAsync(async (req, res, next) => {
   });
 });
 
+// @desc Authenticate user and return JWT (Login)
+// @route POST /api/v1/auth/login
+// @access Public
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
@@ -79,6 +88,9 @@ exports.login = catchAsync(async (req, res, next) => {
   });
 });
 
+// @desc Logout user and invalidate refresh token and clear cookies
+// @route POST /api/v1/auth/logout
+// @access Private
 exports.logout = catchAsync(async (req, res, next) => {
   // 1. Check user
   if (!req.user) {
@@ -99,6 +111,9 @@ exports.logout = catchAsync(async (req, res, next) => {
   });
 });
 
+// @desc Protect routes by requiring authentication
+// @route Middleware (Used before protected routes)
+// @access Private
 exports.protect = catchAsync(async (req, res, next) => {
   // 1. Get token from headers/cookies
   const token = req.headers.authorization?.startsWith("Bearer")
@@ -153,6 +168,10 @@ exports.protect = catchAsync(async (req, res, next) => {
   req.user = currentUser;
   next();
 });
+
+// @desc Restrict access to authorized roles (Authorization middleware)
+// @route Middleware
+// @access Private
 exports.restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
@@ -164,6 +183,9 @@ exports.restrictTo = (...roles) => {
   };
 };
 
+// @desc Refresh access token using refresh token
+// @route POST /api/v1/auth/refresh-token
+// @access Private
 exports.refreshAccessToken = catchAsync(async (req, res, next) => {
   const token = req.headers.authorization?.startsWith("Bearer")
     ? req.headers.authorization.split(" ")[1]
@@ -198,7 +220,9 @@ exports.refreshAccessToken = catchAsync(async (req, res, next) => {
   });
 });
 
-// Social Auth
+// @desc Handle login via third-party social providers (Google/Facebook)
+// @route Middleware
+// @access Public
 exports.socialLoginHandler = catchAsync(async (req, res, next) => {
   const user = req.user;
 
@@ -230,7 +254,13 @@ exports.socialLoginHandler = catchAsync(async (req, res, next) => {
   });
 });
 
-// 2FA
+/*
+ **** 2FA ****
+ */
+
+// @desc Setup Two-Factor Authentication (Generate QR Code & Secret)
+// @route POST /api/v1/auth/2fa
+// @access Private
 exports.setup2FA = catchAsync(async (req, res, next) => {
   const user = req.user;
 
@@ -258,6 +288,9 @@ exports.setup2FA = catchAsync(async (req, res, next) => {
   });
 });
 
+// @desc Verify 2FA OTP and enable 2FA for the user
+// @route POST /api/v1/auth/2fa/verify
+// @access Private
 exports.verify2FA = catchAsync(async (req, res, next) => {
   const { token } = req.body;
   const user = req.user;
@@ -297,6 +330,9 @@ exports.verify2FA = catchAsync(async (req, res, next) => {
   });
 });
 
+// @desc Disable Two-Factor Authentication
+// @route DELETE /api/v1/auth/2fa
+// @access Private
 exports.reset2FA = catchAsync(async (req, res, next) => {
   const user = req.user;
 
@@ -310,7 +346,13 @@ exports.reset2FA = catchAsync(async (req, res, next) => {
   });
 });
 
-// Backup codes
+/*
+ **** Backup codes ****
+ */
+
+// @desc Generate new backup codes for 2FA authentication
+// @route POST /api/v1/auth/backup-codes
+// @access Private
 exports.generateBackupCode = catchAsync(async (req, res, next) => {
   const user = req.user;
 
@@ -333,6 +375,10 @@ exports.generateBackupCode = catchAsync(async (req, res, next) => {
     data: { backupCodes: codes }, // Send plain text for user to save
   });
 });
+
+// @desc Verify a backup code for 2FA authentication
+// @route POST /api/v1/auth/backup-codes/verify
+// @access Private
 exports.verifyBackupCode = catchAsync(async (req, res, next) => {
   const { backupCode } = req.body;
   const user = req.user;
@@ -358,7 +404,13 @@ exports.verifyBackupCode = catchAsync(async (req, res, next) => {
   });
 });
 
-// 2FA Recovery OTP send via email
+/*
+ **** 2FA Recovery OTP send via email ****
+ */
+
+// @desc Request a 2FA recovery OTP via email
+// @route POST /api/v1/auth/2fa/recovery-code
+// @access Private
 exports.requestRecoveryOTP = catchAsync(async (req, res, next) => {
   const user = req.user;
 
@@ -398,6 +450,10 @@ exports.requestRecoveryOTP = catchAsync(async (req, res, next) => {
     return next(new ApiError("Failed to send email. Try again letter!", 500));
   }
 });
+
+// @desc Verify a 2FA recovery OTP sent via email
+// @route POST /api/v1/auth/2fa/recovery-code/verify
+// @access Private
 exports.verifyRecoveryOTP = catchAsync(async (req, res, next) => {
   const { otp } = req.body;
   const user = req.user;
@@ -436,7 +492,13 @@ exports.verifyRecoveryOTP = catchAsync(async (req, res, next) => {
   });
 });
 
-// 2FA Recovery OTP send via SMS
+/*
+ **** 2FA Recovery OTP send via SMS ****
+ */
+
+// @desc Request a 2FA recovery OTP via SMS
+// @route POST /api/v1/auth/2fa/recovery/request-sms
+// @access Private
 exports.requestRecoverySMS = catchAsync(async (req, res, next) => {
   const user = req.user;
 
@@ -482,6 +544,10 @@ exports.requestRecoverySMS = catchAsync(async (req, res, next) => {
     return next(new ApiError("Failed to send SMS. Try again letter!", 500));
   }
 });
+
+// @desc Verify a 2FA recovery OTP sent via SMS
+// @route POST /api/v1/auth/2fa/recovery/verify-sms
+// @access Private
 exports.verifyRecoverySMS = catchAsync(async (req, res, next) => {
   const { otp } = req.body;
   const user = req.user;
@@ -520,10 +586,12 @@ exports.verifyRecoverySMS = catchAsync(async (req, res, next) => {
   });
 });
 
-// Reset password
+/*
+ **** Reset Password ****
+ */
 
-// @desc forgot password
-// @route POST api/v1/auth/forgotPassword
+// @desc Request a password reset by sending an OTP to the user's email
+// @route POST /api/v1/auth/forgot-password
 // @access Public
 exports.forgetPassword = catchAsync(async (req, res, next) => {
   const { email } = req.body;
@@ -581,8 +649,8 @@ exports.forgetPassword = catchAsync(async (req, res, next) => {
   }
 });
 
-// @desc verify reset code
-// @route POST api/v1/auth/verifyResetCode
+// @desc Verify the password reset OTP
+// @route POST /api/v1/auth/verify-reset-code
 // @access Public
 exports.verifyResetCode = catchAsync(async (req, res, next) => {
   const { otp } = req.body;
@@ -612,8 +680,8 @@ exports.verifyResetCode = catchAsync(async (req, res, next) => {
   });
 });
 
-// @desc reset password
-// @route POST api/v1/auth/resetPassword
+// @desc Reset the user's password after verifying the reset OTP
+// @route POST /api/v1/auth/reset-password
 // @access Public
 exports.resetPassword = catchAsync(async (req, res, next) => {
   const { email, newPassword } = req.body;

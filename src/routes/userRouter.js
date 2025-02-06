@@ -16,7 +16,6 @@ const router = express.Router();
 
 router.use(protect, restrictTo("admin"));
 router.route("/").get(getAllUsers).post(createUserValidator, createUser);
-
 router.route("/:id").get(getUserValidator, getUser);
 
 module.exports = router;

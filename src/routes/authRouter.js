@@ -71,9 +71,9 @@ router.post("/login", loginValidator, login);
 router.post("/refresh-token", refreshAccessToken);
 
 // Reset password
-router.post("/forgotPassword", forgetPasswordValidator, forgetPassword);
-router.post("/verifyResetCode", verifyRecoveryValidator, verifyResetCode);
-router.post("/resetPassword", resetPasswordValidator, resetPassword);
+router.post("/forgot-password", forgetPasswordValidator, forgetPassword);
+router.post("/verify-reset-code", verifyRecoveryValidator, verifyResetCode);
+router.post("/reset-password", resetPasswordValidator, resetPassword);
 
 // ======================
 // Protected Routes
