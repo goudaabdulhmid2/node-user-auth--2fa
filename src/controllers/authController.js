@@ -92,8 +92,10 @@ exports.login = catchAsync(async (req, res, next) => {
 // @route POST /api/v1/auth/logout
 // @access Private
 exports.logout = catchAsync(async (req, res, next) => {
-  // 1. Check user
-  if (!req.user) {
+  const user = req.user;
+
+  // 1. Ensure user is authenticated
+  if (!user) {
     return next(new ApiError("Unauthorized user", 401));
   }
   // 2. Clear cookies
@@ -101,7 +103,6 @@ exports.logout = catchAsync(async (req, res, next) => {
   res.clearCookie("refreshToken");
 
   // 3. Ivalidate refresh token
-  const user = await User.findById(req.user.id);
   user.refreshToken = undefined;
   await user.save({ validateBeforeSave: false });
 
@@ -267,7 +268,7 @@ exports.setup2FA = catchAsync(async (req, res, next) => {
   // 1. Generate TOTP Secret
   const secret = speakeasy.generateSecret({
     name: `${process.env.APP_NAME} (${user.email})`,
-    issuer: "Gouda Company",
+    issuer: "HealtMate Company",
   });
 
   // 2. Store secret temporarily (not enabling 2FA yet)
