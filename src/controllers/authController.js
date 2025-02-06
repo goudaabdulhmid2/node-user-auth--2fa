@@ -94,15 +94,11 @@ exports.login = catchAsync(async (req, res, next) => {
 exports.logout = catchAsync(async (req, res, next) => {
   const user = req.user;
 
-  // 1. Ensure user is authenticated
-  if (!user) {
-    return next(new ApiError("Unauthorized user", 401));
-  }
-  // 2. Clear cookies
+  // 1. Clear cookies
   res.clearCookie("jwt");
   res.clearCookie("refreshToken");
 
-  // 3. Ivalidate refresh token
+  // 2. Ivalidate refresh token
   user.refreshToken = undefined;
   await user.save({ validateBeforeSave: false });
 
