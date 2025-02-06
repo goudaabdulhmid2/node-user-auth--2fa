@@ -33,7 +33,7 @@ npm install
 Create a `.env` file and configure it:
 
 ```env
-PORT=3000
+PORT=
 NODE_ENV=
 BASE_URL=
 DATABASE=
@@ -90,14 +90,22 @@ npm start
 | `/api/v1/auth/login`         | **POST** | Authenticate and receive JWT  |
 | `/api/v1/auth/logout`        | **POST** | Logout user and clear session |
 | `/api/v1/auth/refresh-token` | **POST** | Refresh access token          |
+| `/api/v1/auth/google`        | **POST** | Register & Login use Google   |
+| `/api/v1/auth/facebook`      | **POST** | Register & Login use Facebook |
 
 ### 🔐 Two-Factor Authentication (2FA)
 
-| Endpoint                  | Method     | Description                  |
-| ------------------------- | ---------- | ---------------------------- |
-| `/api/v1/auth/2fa/setup`  | **POST**   | Setup 2FA (Generate QR Code) |
-| `/api/v1/auth/2fa/verify` | **POST**   | Verify 2FA OTP               |
-| `/api/v1/auth/2fa/reset`  | **DELETE** | Disable 2FA                  |
+| Endpoint                                | Method     | Description                        |
+| --------------------------------------- | ---------- | ---------------------------------- |
+| `/api/v1/auth/2fa/setup`                | **POST**   | Setup 2FA (Generate QR Code)       |
+| `/api/v1/auth/2fa/verify`               | **POST**   | Verify 2FA OTP                     |
+| `/api/v1/auth/2fa/reset`                | **DELETE** | Disable 2FA                        |
+| `/api/v1/auth/backup-codes`             | **POST**   | Generate backup codes              |
+| `/api/v1/auth/backup-codes/verify`      | **POST**   | Verify backup code                 |
+| `/api/v1/auth/2fa/recovery-code`        | **POST**   | Request 2FA recovery OTP via email |
+| `/api/v1/auth/2fa/recovery-code/verify` | **POST**   | Verify 2FA recovery OTP            |
+| `/api/v1/auth/2fa/recovery/request-sms` | **POST**   | Request 2FA recovery OTP via SMS   |
+| `/api/v1/auth/2fa/recovery/verify-sms`  | **POST**   | Verify 2FA recovery OTP via SMS    |
 
 ### 🔄 Password Recovery
 
