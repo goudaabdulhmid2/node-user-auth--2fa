@@ -130,10 +130,9 @@ graph TD;
     C -->|Using Facebook| F[Redirect to Facebook OAuth];
     C -->|Normal Signup| D;
 
-    G --> H[Google Auth Success] --> D;
-    F --> I[Facebook Auth Success] --> D;
-
-    D -->|Valid Credentials| J{Is 2FA Enabled?};
+    G --> H[Google Auth Success] --> J{Is 2FA Enabled?};
+    F --> I[Facebook Auth Success] --> J;
+    D -->|Valid Credentials| J;
     D -->|Invalid Credentials| X[Login Failed];
 
     J -->|No| K[Grant Access];
@@ -160,8 +159,11 @@ graph TD;
     X -->|Forgot Password?| N[Request Password Reset];
     N --> O[Receive OTP via Email];
     O --> P[Enter OTP & New Password];
-    P -->|Valid OTP| K;
+    P -->|Valid OTP| Q{Is 2FA Enabled?};
     P -->|Invalid OTP| X;
+
+    Q -->|No| K;
+    Q -->|Yes| L;
 ```
 
 ## 🛡️ Security Features
