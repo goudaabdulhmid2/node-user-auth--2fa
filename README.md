@@ -115,6 +115,39 @@ npm start
 | `/api/v1/auth/verify-reset-code` | **POST** | Verify reset OTP           |
 | `/api/v1/auth/reset-password`    | **POST** | Reset password             |
 
+## 🔍 Authentication & 2FA Flowchart
+
+The following diagram illustrates the **user authentication process**, including **2FA verification and recovery options**:
+
+```mermaid
+%% User Authentication & 2FA Flow
+graph TD;
+    A[User Opens App] --> B[Enter Email & Password];
+    B -->|Valid Credentials| C{Is 2FA Enabled?};
+    B -->|Invalid Credentials| X[Login Failed];
+
+    C -->|No| D[Grant Access];
+    C -->|Yes| E[Enter OTP from Authenticator];
+
+    E -->|Valid OTP| D;
+    E -->|Invalid OTP| Y[Retry or Use Recovery Options];
+
+    Y -->|Backup Codes| Z[Enter Backup Code];
+    Y -->|Email OTP| W[Request Email OTP];
+    Y -->|SMS OTP| V[Request SMS OTP];
+
+    Z -->|Valid Backup Code| D;
+    W -->|Valid Email OTP| D;
+    V -->|Valid SMS OTP| D;
+
+    Z -->|Invalid| Y;
+    W -->|Invalid| Y;
+    V -->|Invalid| Y;
+
+    D --> L[User Logged In];
+    X --> M[Try Again];
+```
+
 ## 🛡️ Security Features
 
 - **JWT Authentication & Refresh Token Handling**
