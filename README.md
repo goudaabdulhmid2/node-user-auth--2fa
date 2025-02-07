@@ -120,7 +120,7 @@ npm start
 The following diagram illustrates the **user authentication process**, including **2FA verification and recovery options**:
 
 ```mermaid
-%% User Authentication & 2FA Flow
+%% User Authentication, 2FA & Password Recovery Flow
 graph TD;
     A[User Opens App] --> B[Enter Email & Password];
     B -->|Valid Credentials| C{Is 2FA Enabled?};
@@ -146,6 +146,12 @@ graph TD;
 
     D --> L[User Logged In];
     X --> M[Try Again];
+
+    X -->|Forgot Password?| N[Request Password Reset];
+    N --> O[Receive OTP via Email];
+    O --> P[Enter OTP & New Password];
+    P -->|Valid OTP| D;
+    P -->|Invalid OTP| X;
 ```
 
 ## 🛡️ Security Features
