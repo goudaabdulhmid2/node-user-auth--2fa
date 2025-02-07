@@ -120,37 +120,47 @@ npm start
 The following diagram illustrates the **user authentication process**, including **2FA verification and recovery options**:
 
 ```mermaid
-%% User Authentication, 2FA & Password Recovery Flow
+%% User Authentication, OAuth, 2FA & Password Recovery Flow
 graph TD;
-    A[User Opens App] --> B[Enter Email & Password];
-    B -->|Valid Credentials| C{Is 2FA Enabled?};
-    B -->|Invalid Credentials| X[Login Failed];
+    A[User Opens App] --> B{Signup or Login?};
+    B -->|Signup| C[Enter Details & Register];
+    B -->|Login| D[Enter Email & Password];
 
-    C -->|No| D[Grant Access];
-    C -->|Yes| E[Enter OTP from Authenticator];
+    C -->|Using Google| G[Redirect to Google OAuth];
+    C -->|Using Facebook| F[Redirect to Facebook OAuth];
+    C -->|Normal Signup| D;
 
-    E -->|Valid OTP| D;
-    E -->|Invalid OTP| Y[Retry or Use Recovery Options];
+    G --> H[Google Auth Success] --> D;
+    F --> I[Facebook Auth Success] --> D;
+
+    D -->|Valid Credentials| J{Is 2FA Enabled?};
+    D -->|Invalid Credentials| X[Login Failed];
+
+    J -->|No| K[Grant Access];
+    J -->|Yes| L[Enter OTP from Authenticator];
+
+    L -->|Valid OTP| K;
+    L -->|Invalid OTP| Y[Retry or Use Recovery Options];
 
     Y -->|Backup Codes| Z[Enter Backup Code];
     Y -->|Email OTP| W[Request Email OTP];
     Y -->|SMS OTP| V[Request SMS OTP];
 
-    Z -->|Valid Backup Code| D;
-    W -->|Valid Email OTP| D;
-    V -->|Valid SMS OTP| D;
+    Z -->|Valid Backup Code| K;
+    W -->|Valid Email OTP| K;
+    V -->|Valid SMS OTP| K;
 
     Z -->|Invalid| Y;
     W -->|Invalid| Y;
     V -->|Invalid| Y;
 
-    D --> L[User Logged In];
+    K --> L[User Logged In];
     X --> M[Try Again];
 
     X -->|Forgot Password?| N[Request Password Reset];
     N --> O[Receive OTP via Email];
     O --> P[Enter OTP & New Password];
-    P -->|Valid OTP| D;
+    P -->|Valid OTP| K;
     P -->|Invalid OTP| X;
 ```
 
