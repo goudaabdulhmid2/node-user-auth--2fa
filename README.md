@@ -122,48 +122,46 @@ The following diagram illustrates the **user authentication process**, including
 ```mermaid
 %% User Authentication, OAuth, 2FA & Password Recovery Flow
 graph TD;
-    A[User Opens App] --> B{Signup or Login?};
-    B -->|Signup| C[Enter Details & Register];
-    B -->|Login| D[Enter Email & Password];
+  A[User Opens App] -->|Signup| B[Enter Details & Register]
+  B --> C{Enable 2FA?}
+  C -->|Yes| D[Generate Backup Codes & Setup Authenticator]
+  C -->|No| E[User Logged In]
+  D --> E
 
-    C -->|Using Google| G[Redirect to Google OAuth];
-    C -->|Using Facebook| F[Redirect to Facebook OAuth];
-    C -->|Normal Signup| D;
+  A -->|Login| F{Choose Method}
+  F -->|Google| G[Google OAuth Success]
+  F -->|Facebook| H[Facebook OAuth Success]
+  F -->|Email & Password| I[Enter Email & Password]
 
-    G --> H[Google Auth Success] --> J{Is 2FA Enabled?};
-    F --> I[Facebook Auth Success] --> J;
-    D -->|Valid Credentials| J;
-    D -->|Invalid Credentials| X[Login Failed];
+  I --> J{Credentials Valid?}
+  J -->|No| K[Login Failed: Try Again or Forgot Password?]
+  K -->|Forgot Password| L[Request Reset]
+  L --> M[OTP Sent to Email/SMS]
+  M --> N{Valid OTP?}
+  N -->|Yes| O[Password Updated]
+  N -->|No| P[Invalid OTP]
 
-    J -->|No| K[Grant Access];
-    J -->|Yes| L[Enter OTP from Authenticator];
+  J -->|Yes| Q{2FA Enabled?}
+  Q -->|No| E
+  Q -->|Yes| R[Select 2FA Method]
 
-    L -->|Valid OTP| K;
-    L -->|Invalid OTP| Y[Retry or Use Recovery Options];
+  R -->|Authenticator App| S[Enter Code]
+  S --> T{Valid?}
+  T -->|Yes| E
+  T -->|No| U[Retry or Use Backup]
 
-    Y -->|Backup Codes| Z[Enter Backup Code];
-    Y -->|Email OTP| W[Request Email OTP];
-    Y -->|SMS OTP| V[Request SMS OTP];
+  U -->|Backup Code| V[Enter Backup Code]
+  U -->|Email OTP| W[Send OTP to Email]
+  U -->|SMS OTP| X[Send OTP to SMS]
 
-    Z -->|Valid Backup Code| K;
-    W -->|Valid Email OTP| K;
-    V -->|Valid SMS OTP| K;
+  W --> Y[Enter OTP]
+  X --> Y
+  V --> Y
+  Y --> Z{Valid?}
+  Z -->|Yes| E
+  Z -->|No| U
 
-    Z -->|Invalid| Y;
-    W -->|Invalid| Y;
-    V -->|Invalid| Y;
 
-    K --> L[User Logged In];
-    X --> M[Try Again];
-
-    X -->|Forgot Password?| N[Request Password Reset];
-    N --> O[Receive OTP via Email];
-    O --> P[Enter OTP & New Password];
-    P -->|Valid OTP| Q{Is 2FA Enabled?};
-    P -->|Invalid OTP| X;
-
-    Q -->|No| K;
-    Q -->|Yes| L;
 ```
 
 ## 🛡️ Security Features
