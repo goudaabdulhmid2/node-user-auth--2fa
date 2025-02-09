@@ -227,17 +227,7 @@ exports.socialLoginHandler = catchAsync(async (req, res, next) => {
     return next(new ApiError("Authentication failed", 401));
   }
 
-  // If 2FA is enabled, require verification before issuing a token
-  if (user.twoFactorEnabled) {
-    const tempToken = generateTempToken(user.id);
-    return res.status(200).json({
-      status: "2fa-required",
-      token: tempToken,
-      message: "Two-factor authentication required",
-    });
-  }
-
-  // No 2FA? Issue token immediately
+  // Issue token immediately
   const token = createToken(user, req, res);
   await refreshToken(user, req, res);
 
@@ -699,24 +689,8 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   user.passwordResetVerify = undefined;
   await user.save();
 
-  // Handle 2FA
-  if (user.twoFactorEnabled) {
-    const tempToken = generateTempToken(user.id);
-    return res.status(200).json({
-      status: "2fa-required",
-      token: tempToken,
-      message:
-        "Password has been reset successfully, Two-factor authentication required",
-    });
-  }
-
-  //  Issue full JWT if no 2FA is required
-  const token = createToken(user, req, res);
-  await refreshToken(user, req, res);
-
   res.status(200).json({
     status: "success",
-    token,
-    message: "Password has been reset successfully",
+    message: "Password has been reset successfully, Please login again",
   });
 });
