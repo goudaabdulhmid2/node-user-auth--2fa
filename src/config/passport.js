@@ -46,7 +46,7 @@ const handleOAuthUser = async ({
       return done(null, user);
     }
 
-    // Create new user with random password
+    // Create new user
     user = await User.create({
       name,
       email: email || `${providerId}@${providerName}.com`,

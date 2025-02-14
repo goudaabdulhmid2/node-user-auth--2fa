@@ -10,6 +10,7 @@ const {
   refreshToken,
   hashRefreshToken,
   generateTempToken,
+  genrateToken,
 } = require("../utlis/createToken");
 const sanitizeUser = require("../utlis/sanitizeUser");
 const ApiError = require("../utlis/ApiError");
@@ -26,23 +27,90 @@ const generateRandomCode = () => crypto.randomInt(100000, 999999).toString();
 // @route POST /api/v1/auth/signup
 // @access Public
 exports.signup = catchAsync(async (req, res, next) => {
+  // 1. Check if user already exists
+  const existingUser = await User.findOne({ email: req.body.email });
+  if (existingUser) {
+    return next(new ApiError("User already exists.", 400));
+  }
+
+  // 2. Create user
   const newUser = await User.create({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
     phone: req.body.phone,
-    profileImage: req.body.profileImage,
   });
 
-  const token = createToken(newUser, req, res);
-  await refreshToken(newUser, req, res);
-  await new Email(newUser, "").sendWelcome();
+  // 3. Generate verification token
+  const verificationToken = genrateToken(newUser.id, false, "1h");
+  newUser.verificationToken = verificationToken;
+  newUser.verificationTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+
+  await newUser.save({ validateBeforeSave: false });
+
+  // 4. Send verification email
+  try {
+    const url = `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${verificationToken}`;
+    await new Email(newUser, url).sendVerifyEmail();
+  } catch (err) {
+    // Rollback on email failure
+    await User.findByIdAndDelete(newUser._id);
+    return next(new ApiError("Error sending verification email", 500));
+  }
 
   res.status(201).json({
     status: "success",
+    message: "Signup successful!. Please verify your email.",
+  });
+});
+
+// @desc Verify user email
+// @route POST /api/v1/auth/verify-email
+// @access Public
+
+exports.verifyEmail = catchAsync(async (req, res, next) => {
+  const verificationToken = req.params.token;
+
+  // 1. Verify token
+  const decoded = jwt.verify(verificationToken, process.env.JWT_SECRET);
+
+  // 2. Find user
+  const user = await User.findOne({
+    _id: decoded.id,
+    verificationToken,
+    verificationTokenExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new ApiError("Invalid or expired token.", 400));
+  }
+
+  // 3. Check if user is already verified
+  if (user.isVerified) {
+    return next(new ApiError("Email already verified.", 400));
+  }
+
+  // 4. Update user and save
+  user.isVerified = true;
+  user.verificationToken = undefined;
+  user.verificationTokenExpires = undefined;
+
+  // 5. Add email verified timestamp
+  user.emailVerifiedAt = Date.now();
+
+  // 6. Save user
+  await user.save({ validateBeforeSave: false });
+
+  // 7. Token and refresh token
+  const token = createToken(user, req, res);
+  await refreshToken(user, req, res);
+
+  res.status(200).json({
+    status: "success",
+    message: "Email verified successfully!",
     token,
     data: {
-      user: sanitizeUser(newUser),
+      user: sanitizeUser(user),
     },
   });
 });
@@ -53,18 +121,37 @@ exports.signup = catchAsync(async (req, res, next) => {
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
-  // 1. Check if email/password exist
+  // 1. Add brute force protection
+  const failedAttempts = await getFailedAttempts(req.ip); // Implement this
+  if (failedAttempts > 5) {
+    return next(
+      new ApiError("Account temporarily locked. Try again later", 429)
+    );
+  }
+
+  // 2. Check if email/password exist
   if (!email?.trim() || !password?.trim()) {
     return next(new ApiError("Please provide email and password", 400));
   }
 
-  // 2. Find user and validate credentials
+  // 3. Find user and validate credentials
   const user = await User.findOne({ email }).select("+password");
+
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new ApiError("incorrect email or password.", 401));
   }
 
-  // 3. Handle 2FA
+  // 4. Check if user is verified
+  if (!user.isVerified) {
+    return next(new ApiError("Please verify your email first.", 401));
+  }
+
+  // 5. Check if user is active
+  if (!user.active) {
+    return next(new ApiError("Account is deactivated", 401));
+  }
+
+  // 6. Handle 2FA
   if (user.twoFactorEnabled) {
     const tempToken = generateTempToken(user.id);
     return res.status(200).json({
@@ -74,11 +161,10 @@ exports.login = catchAsync(async (req, res, next) => {
     });
   }
 
-  // 4. Regular login without 2FA
+  // 7. Regular login without 2FA
   const token = createToken(user, req, res);
   await refreshToken(user, req, res);
 
-  // send response
   res.status(200).json({
     status: "success",
     token,
@@ -88,18 +174,61 @@ exports.login = catchAsync(async (req, res, next) => {
   });
 });
 
+// @desc resend verification email
+// @route POST /api/v1/auth/resend-verification-email
+// @access Public
+exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+
+  // 1. Check if user exists
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return next(new ApiError("User not found.", 404));
+  }
+
+  // 2. Check if user is verified
+  if (user.isVerified) {
+    return next(new ApiError("Email already verified.", 400));
+  }
+
+  // 3. Generate verification token
+  const verificationToken = genrateToken(user.id, false, "1h");
+  user.verificationToken = verificationToken;
+  await user.save({ validateBeforeSave: false });
+
+  // 4. Send verification email
+  const url = `${req.protocol}://${req.get("host")}/api/v1/verify-email/${verificationToken}`;
+  await new Email(user, url).sendVerifyEmail();
+
+  res.status(200).json({
+    status: "success",
+    message: "Verification email sent successfully.",
+  });
+});
+
 // @desc Logout user and invalidate refresh token and clear cookies
 // @route POST /api/v1/auth/logout
 // @access Private
 exports.logout = catchAsync(async (req, res, next) => {
   const user = req.user;
 
-  // 1. Clear cookies
-  res.clearCookie("jwt");
-  res.clearCookie("refreshToken");
+  // 1. Add security headers, clear browser site data
+  res.setHeader("Clear-Site-Data", '"cookies", "storage"');
 
-  // 2. Ivalidate refresh token
+  // 2. Clear cookies with same options as set
+  const cookieOptions = {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "strict",
+  };
+
+  res.clearCookie("jwt", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  // 3. Invalidate all sessions
   user.refreshToken = undefined;
+  user.lastLogout = Date.now();
   await user.save({ validateBeforeSave: false });
 
   res.status(200).json({

@@ -2,9 +2,13 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const catchAsync = require("express-async-handler");
 
-const genrateToken = (id, verified2FA = false) => {
+const genrateToken = (
+  id,
+  verified2FA = false,
+  expiresIn = process.env.JWT_EXPIRES_IN
+) => {
   return jwt.sign({ id, verified2FA }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
+    expiresIn,
   });
 };
 

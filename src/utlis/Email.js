@@ -98,6 +98,22 @@ class Email {
     await this.send(message, "Welcome to the HealthMate Family!");
   }
 
+  // Verify Email
+  async sendVerifyEmail() {
+    const message = `
+      Hi, ${this.firstname}
+      
+      Welcome to the HealthMate Family!
+      
+      To verify your email, please click the following link:
+      ${this.code}
+      
+      Best regards,
+      HealthMate Team
+    `;
+    await this.send(message, "Verify Your Email!.");
+  }
+
   // Two factor recovery email
   async sendTwoFactorRecovery() {
     const message = `
