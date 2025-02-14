@@ -65,7 +65,7 @@ exports.signup = catchAsync(async (req, res, next) => {
 });
 
 // @desc Verify user email
-// @route POST /api/v1/auth/verify-email
+// @route GET /api/v1/auth/verify-email/:token
 // @access Public
 
 exports.verifyEmail = catchAsync(async (req, res, next) => {
@@ -115,65 +115,6 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   });
 });
 
-// @desc Authenticate user and return JWT (Login)
-// @route POST /api/v1/auth/login
-// @access Public
-exports.login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
-
-  // 1. Add brute force protection
-  const failedAttempts = await getFailedAttempts(req.ip); // Implement this
-  if (failedAttempts > 5) {
-    return next(
-      new ApiError("Account temporarily locked. Try again later", 429)
-    );
-  }
-
-  // 2. Check if email/password exist
-  if (!email?.trim() || !password?.trim()) {
-    return next(new ApiError("Please provide email and password", 400));
-  }
-
-  // 3. Find user and validate credentials
-  const user = await User.findOne({ email }).select("+password");
-
-  if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new ApiError("incorrect email or password.", 401));
-  }
-
-  // 4. Check if user is verified
-  if (!user.isVerified) {
-    return next(new ApiError("Please verify your email first.", 401));
-  }
-
-  // 5. Check if user is active
-  if (!user.active) {
-    return next(new ApiError("Account is deactivated", 401));
-  }
-
-  // 6. Handle 2FA
-  if (user.twoFactorEnabled) {
-    const tempToken = generateTempToken(user.id);
-    return res.status(200).json({
-      status: "2fa-required",
-      token: tempToken,
-      message: "Two-factor authentication required",
-    });
-  }
-
-  // 7. Regular login without 2FA
-  const token = createToken(user, req, res);
-  await refreshToken(user, req, res);
-
-  res.status(200).json({
-    status: "success",
-    token,
-    data: {
-      user: sanitizeUser(user),
-    },
-  });
-});
-
 // @desc resend verification email
 // @route POST /api/v1/auth/resend-verification-email
 // @access Public
@@ -204,6 +145,74 @@ exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     message: "Verification email sent successfully.",
+  });
+});
+
+// @desc Authenticate user and return JWT (Login)
+// @route POST /api/v1/auth/login
+// @access Public
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  // 1. Check if email/password exist
+  if (!email?.trim() || !password?.trim()) {
+    return next(new ApiError("Please provide email and password", 400));
+  }
+
+  // 2. Find user and validate credentials
+  const user = await User.findOne({ email }).select("+password");
+
+  if (!user) {
+    return next(new ApiError("incorrect email or password.", 401));
+  }
+
+  // 3. Check if user is locked
+  if (user.isLocked()) {
+    const unlockTime = user.getUnlockTime();
+    return next(
+      new ApiError(
+        `Account is locked. Try again in ${unlockTime} minutes.`,
+        429
+      )
+    );
+  }
+
+  // 4. Check if password is correct
+  const isCorrect = await user.correctPassword(password, user.password);
+  if (!isCorrect) {
+    return next(new ApiError("incorrect email or password.", 401));
+  }
+
+  // 5. Check if user is verified
+  if (!user.isVerified) {
+    return next(new ApiError("Please verify your email first.", 401));
+  }
+
+  // 6. Check if user is active
+  if (!user.active) {
+    return next(new ApiError("Account is deactivated", 401));
+  }
+
+  // 7. Handle 2FA
+  if (user.twoFactorEnabled) {
+    const tempToken = generateTempToken(user.id);
+    return res.status(200).json({
+      status: "2fa-required",
+      token: tempToken,
+      message: "Two-factor authentication required",
+    });
+  }
+
+  // 8. Regular login without 2FA
+  const token = createToken(user, req, res);
+  await refreshToken(user, req, res);
+
+  res.status(200).json({
+    status: "success",
+    token,
+    data: {
+      user: sanitizeUser(user),
+    },
   });
 });
 

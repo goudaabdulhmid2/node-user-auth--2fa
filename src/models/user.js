@@ -68,6 +68,7 @@ const userSchema = new mongoose.Schema(
     lastLogin: Date,
     lastLogout: Date,
     failedAttempts: { type: Number, default: 0 },
+    lockUntil: Date,
     passwordChangedAt: Date,
 
     // Reset Password
@@ -120,7 +121,15 @@ userSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
 ) {
-  return await bcrypt.compare(candidatePassword, userPassword);
+  const isCorrect = await bcrypt.compare(candidatePassword, userPassword);
+
+  if (isCorrect) {
+    await this.resetFailedAttempts(); // Reset failed attempts if correct
+  } else {
+    await this.increaseFailedAttempts(); // Increase failed attempts if incorrect
+  }
+
+  return isCorrect;
 };
 
 // Check if Password change after sign jwt
@@ -152,6 +161,47 @@ userSchema.methods.verifyBackupCode = function (code) {
   this.backupCodes.splice(index, 1);
   return true;
 };
+
+// Brute force protection
+userSchema.methods.isLocked = function () {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+userSchema.methods.increaseFailedAttempts = async function () {
+  // If user is locked return nothing
+  if (this.isLocked()) return this;
+
+  // Increase failed attempts
+  this.failedAttempts += 1;
+
+  // Check if user has reached max attempts
+  if (this.failedAttempts >= 5) {
+    this.lockUntil = Date.now() + 1000 * 60 * 15; // Lock for 15 minutes
+  }
+  await this.save({ validateBeforeSave: false });
+  return this;
+};
+
+userSchema.methods.resetFailedAttempts = async function () {
+  this.failedAttempts = 0;
+  this.lockUntil = undefined;
+  await this.save({ validateBeforeSave: false });
+  return this;
+};
+
+userSchema.methods.getUnlockTime = function () {
+  if (!this.lockUntil) return 0;
+  return Math.ceil((this.lockUntil - Date.now()) / (60 * 1000)); // Returns minutes
+};
+
+// Automatically unlock account if lock duration has passed
+userSchema.pre("save", function (next) {
+  if (this.isLocked() && this.lockUntil < Date.now()) {
+    this.lockUntil = undefined;
+    this.failedAttempts = 0;
+  }
+  next();
+});
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;

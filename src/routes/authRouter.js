@@ -21,6 +21,8 @@ const {
   forgetPassword,
   verifyResetCode,
   resetPassword,
+  verifyEmail,
+  resendVerificationEmail,
 } = require("../controllers/authController");
 const {
   signupValidator,
@@ -74,6 +76,10 @@ router.post("/refresh-token", refreshAccessToken);
 router.post("/forgot-password", forgetPasswordValidator, forgetPassword);
 router.post("/verify-reset-code", verifyRecoveryValidator, verifyResetCode);
 router.post("/reset-password", resetPasswordValidator, resetPassword);
+
+// verify email
+router.get("/verify-email/:token", verifyEmail);
+router.post("/resend-verification-email", resendVerificationEmail);
 
 // ======================
 // Protected Routes
