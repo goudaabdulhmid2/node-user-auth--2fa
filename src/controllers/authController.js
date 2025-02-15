@@ -55,7 +55,9 @@ exports.signup = catchAsync(async (req, res, next) => {
   } catch (err) {
     // Rollback on email failure
     await User.findByIdAndDelete(newUser._id);
-    return next(new ApiError("Error sending verification email", 500));
+    return next(
+      new ApiError("Error sending verification email. Try again later!", 500)
+    );
   }
 
   res.status(201).json({
@@ -104,6 +106,9 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   // 7. Token and refresh token
   const token = createToken(user, req, res);
   await refreshToken(user, req, res);
+
+  // 8. Send email verified
+  await new Email(user, "").sendEmailVerified();
 
   res.status(200).json({
     status: "success",
@@ -366,7 +371,7 @@ exports.socialLoginHandler = catchAsync(async (req, res, next) => {
   }
 
   // Issue token immediately
-  const token = createToken(user, req, res);
+  const token = createToken(user, req, res, true);
   await refreshToken(user, req, res);
 
   res.status(200).json({

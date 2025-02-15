@@ -85,13 +85,13 @@ class Email {
       Hi, ${this.firstname}
       
       Welcome to the HealthMate Family!
+
+      we sent you an email to verify your email address.
       
-      You've successfully registered, and your journey with us has just begun.
+      if you didn't request this verification, please ignore this email or contact support.
       
-      If you have any questions, our support team is here to help.
-      
-      Enjoy your journey with us!
-      
+      Once you've verified your email, you can start using HealthMate. To get started, please create a new account or sign in with your existing email address.
+    
       Best regards,
       HealthMate Team
     `;
@@ -104,14 +104,31 @@ class Email {
       Hi, ${this.firstname}
       
       Welcome to the HealthMate Family!
+
+      Once you've verified your email, you can start using HealthMate.
       
       To verify your email, please click the following link:
       ${this.code}
       
+      if you didn't request this verification, please ignore this email or contact support.
+
       Best regards,
       HealthMate Team
     `;
     await this.send(message, "Verify Your Email!.");
+  }
+
+  // confirm email has been verified successfully
+  async sendEmailVerified() {
+    const message = `
+    Hi, ${this.firstname}
+    We are happy to inform you that your email has been verified successfully.
+
+    You can now login to your account and start using HealthMate.
+    Best regards,
+    HealthMate Team
+    `;
+    await this.send(message, "Email Verified Successfully");
   }
 
   // Two factor recovery email

@@ -164,6 +164,20 @@ userSchema.methods.verifyBackupCode = function (code) {
 
 // Brute force protection
 userSchema.methods.isLocked = function () {
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    this.lockUntil = undefined;
+    this.failedAttempts = 0;
+
+    // Background save with proper error handling
+    this.save({ validateBeforeSave: false }).catch((err) => {
+      console.error("Failed to persist account unlock:", {
+        userId: this._id,
+        error: err.message,
+      });
+    });
+
+    return false;
+  }
   return this.lockUntil && this.lockUntil > Date.now();
 };
 
@@ -176,7 +190,7 @@ userSchema.methods.increaseFailedAttempts = async function () {
 
   // Check if user has reached max attempts
   if (this.failedAttempts >= 5) {
-    this.lockUntil = Date.now() + 1000 * 60 * 15; // Lock for 15 minutes
+    this.lockUntil = Date.now() + 1000 * 60 * 15; // 15 minutes
   }
   await this.save({ validateBeforeSave: false });
   return this;
@@ -193,15 +207,6 @@ userSchema.methods.getUnlockTime = function () {
   if (!this.lockUntil) return 0;
   return Math.ceil((this.lockUntil - Date.now()) / (60 * 1000)); // Returns minutes
 };
-
-// Automatically unlock account if lock duration has passed
-userSchema.pre("save", function (next) {
-  if (this.isLocked() && this.lockUntil < Date.now()) {
-    this.lockUntil = undefined;
-    this.failedAttempts = 0;
-  }
-  next();
-});
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
