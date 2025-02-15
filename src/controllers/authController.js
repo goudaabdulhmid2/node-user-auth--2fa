@@ -103,17 +103,12 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   // 6. Save user
   await user.save({ validateBeforeSave: false });
 
-  // 7. Token and refresh token
-  const token = createToken(user, req, res);
-  await refreshToken(user, req, res);
-
-  // 8. Send email verified
+  // 7. Send email verified
   await new Email(user, "").sendEmailVerified();
 
   res.status(200).json({
     status: "success",
-    message: "Email verified successfully!",
-    token,
+    message: "Email verified successfully!. Please login to continue.",
     data: {
       user: sanitizeUser(user),
     },
