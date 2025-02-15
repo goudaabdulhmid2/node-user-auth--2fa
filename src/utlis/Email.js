@@ -8,7 +8,7 @@ class Email {
     this.to = user.email;
     this.firstname = user.name.split(" ")[0];
     this.code = code;
-    this.from = `HealthMate team`;
+    this.from = `Gouda team`;
   }
 
   // Create
@@ -58,7 +58,7 @@ class Email {
     const message = `
     Hello ${this.firstname},
     
-    We received a request to reset your password on HealthMate Account.
+    We received a request to reset your password on Gouda Account.
     
     Please use the code to reset your password:
     ${this.code}
@@ -70,7 +70,7 @@ class Email {
     Thanks for helping us keep your account secure.
     
     Best regards,
-    HealthMate Team
+    Gouda Team
   `;
 
     await this.send(
@@ -84,18 +84,18 @@ class Email {
     const message = `
       Hi, ${this.firstname}
       
-      Welcome to the HealthMate Family!
+      Welcome to the Gouda Family!
 
       we sent you an email to verify your email address.
       
       if you didn't request this verification, please ignore this email or contact support.
       
-      Once you've verified your email, you can start using HealthMate. To get started, please create a new account or sign in with your existing email address.
+      Once you've verified your email, you can start using Gouda. To get started, please create a new account or sign in with your existing email address.
     
       Best regards,
-      HealthMate Team
+      Gouda Team
     `;
-    await this.send(message, "Welcome to the HealthMate Family!");
+    await this.send(message, "Welcome to the Gouda Family!");
   }
 
   // Verify Email
@@ -103,9 +103,9 @@ class Email {
     const message = `
       Hi, ${this.firstname}
       
-      Welcome to the HealthMate Family!
+      Welcome to the Gouda Family!
 
-      Once you've verified your email, you can start using HealthMate.
+      Once you've verified your email, you can start using Gouda.
       
       To verify your email, please click the following link:
       ${this.code}
@@ -113,7 +113,7 @@ class Email {
       if you didn't request this verification, please ignore this email or contact support.
 
       Best regards,
-      HealthMate Team
+      Gouda Team
     `;
     await this.send(message, "Verify Your Email!.");
   }
@@ -124,9 +124,9 @@ class Email {
     Hi, ${this.firstname}
     We are happy to inform you that your email has been verified successfully.
 
-    You can now login to your account and start using HealthMate.
+    You can now login to your account and start using Gouda.
     Best regards,
-    HealthMate Team
+    Gouda Team
     `;
     await this.send(message, "Email Verified Successfully");
   }
@@ -148,7 +148,7 @@ class Email {
     Thanks for helping us keep your account secure.
     
     Best regards,
-    HealthMate Team
+    Gouda Team
   `;
 
     await this.send(
