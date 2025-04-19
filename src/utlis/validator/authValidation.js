@@ -5,11 +5,16 @@ const User = require("../../models/user");
 
 // Core auth
 exports.signupValidator = [
-  check("name")
+  check("firstName")
     .notEmpty()
-    .withMessage("Name is required.")
+    .withMessage("First name is required.")
     .isLength({ min: 3 })
-    .withMessage("Name must be at least 3 characters long."),
+    .withMessage("First name must be at least 3 characters long."),
+  check("secondName")
+    .notEmpty()
+    .withMessage("Second name is required.")
+    .isLength({ min: 3 })
+    .withMessage("Second name must be at least 3 characters long."),
 
   check("email")
     .notEmpty()
