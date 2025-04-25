@@ -34,8 +34,24 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    gender: {
+      required: true,
+      type: String,
+      enum: ["male", "female", "other", "prefer not to say"],
+    },
+    brithdate: {
+      type: Date,
+      required: [true, "Brithdate is required"],
+    },
+    age: {
+      type: Number,
+      min: [18, "You must be at least 18 years old."],
+    },
     phone: String,
-    profileImage: String,
+    profileImage: {
+      type: String,
+      default: "user-profile-default-image.png",
+    },
     password: {
       type: String,
       required: [
@@ -47,6 +63,7 @@ const userSchema = new mongoose.Schema(
       minlength: [8, "Password at least 8 char long"],
       select: false,
     },
+
     refreshToken: String,
     role: {
       type: String,

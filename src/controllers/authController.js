@@ -40,6 +40,10 @@ exports.signup = catchAsync(async (req, res, next) => {
     email: req.body.email,
     password: req.body.password,
     phone: req.body.phone,
+    profileImage: req.body.profileImage,
+    gender: req.body.gender,
+    brithdate: req.body.brithdate,
+    age: req.body.age,
   });
 
   // 3. Generate verification token

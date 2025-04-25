@@ -56,11 +56,38 @@ exports.signupValidator = [
       }
       return true;
     }),
-  check("profileImage").optional(),
+  check("profileImage")
+    .optional()
+    .isString()
+    .withMessage("Profile image must be a string"),
+  check("brithdate")
+    .notEmpty()
+    .withMessage("Brithdate is required.")
+    .isDate()
+    .withMessage("Please enter a valid date.")
+    .custom((val) => {
+      const today = new Date();
+      const birthDate = new Date(val);
+      const age = today.getFullYear() - birthDate.getFullYear();
+      if (age < 18) {
+        throw new Error("You must be at least 18 years old.");
+      }
+      req.age = age;
+      return true;
+    }),
   check("phone")
     .optional()
     .isMobilePhone()
     .withMessage("Please enter a valid phone number."),
+  check("gender")
+    .notEmpty()
+    .withMessage("Gender is required.")
+    .trim()
+    .toLowerCase()
+    .isIn(["male", "female", "other", "prefer not to say"])
+    .withMessage(
+      "Gender must be one of: male, female, other, or prefer not to say."
+    ),
   handleValidationErrors,
 ];
 exports.loginValidator = [

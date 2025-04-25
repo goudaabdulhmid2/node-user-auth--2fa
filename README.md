@@ -84,7 +84,7 @@ This repository contains a **secure authentication system** with support for **J
 ### 1️⃣ Clone the Repository
 
 ```sh
-git clone https://github.com/your-username/node-user-auth--2fa
+git clone https://github.com/goudaabdulhmid2/node-user-auth--2fa
 cd auth-api
 ```
 
