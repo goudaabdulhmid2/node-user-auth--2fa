@@ -8,7 +8,7 @@ class Email {
     this.to = user.email;
     this.firstname = user.name.split(" ")[0];
     this.code = code;
-    this.from = `Gouda team`;
+    this.from = `HealtMate team`;
   }
 
   // Create
@@ -58,7 +58,7 @@ class Email {
     const message = `
     Hello ${this.firstname},
     
-    We received a request to reset your password on Gouda Account.
+    We received a request to reset your password on HealtMate Account.
     
     Please use the code to reset your password:
     ${this.code}
@@ -70,7 +70,7 @@ class Email {
     Thanks for helping us keep your account secure.
     
     Best regards,
-    Gouda Team
+    HealtMate Team
   `;
 
     await this.send(
@@ -84,7 +84,7 @@ class Email {
     const message = `
       Hi, ${this.firstname}
       
-      Welcome to the Gouda Family!
+      Welcome to the HealtMate Family!
 
       we sent you an email to verify your email address.
       
@@ -93,9 +93,9 @@ class Email {
       Once you've verified your email, you can start using Gouda. To get started, please create a new account or sign in with your existing email address.
     
       Best regards,
-      Gouda Team
+      HealtMate Team
     `;
-    await this.send(message, "Welcome to the Gouda Family!");
+    await this.send(message, "Welcome to the HealtMate Family!");
   }
 
   // Verify Email
@@ -103,17 +103,22 @@ class Email {
     const message = `
       Hi, ${this.firstname}
       
-      Welcome to the Gouda Family!
+      Welcome to the HealtMate Family!
 
-      Once you've verified your email, you can start using Gouda.
+      Once you've verified your email, you can start using HealtMate.
       
-      To verify your email, please click the following link:
+      To verify your email, please use the following OTP:
       ${this.code}
       
-      if you didn't request this verification, please ignore this email or contact support.
+      This OTP is valid for 10 minutes only.
+      
+      You have 3 attempts to enter the correct OTP.
+      
+      If you didn't request this verification, please ignore this email or contact support.
+
 
       Best regards,
-      Gouda Team
+      HealtMate Team
     `;
     await this.send(message, "Verify Your Email!.");
   }
@@ -126,7 +131,7 @@ class Email {
 
     You can now login to your account and start using Gouda.
     Best regards,
-    Gouda Team
+    HealtMate Team
     `;
     await this.send(message, "Email Verified Successfully");
   }
@@ -148,7 +153,7 @@ class Email {
     Thanks for helping us keep your account secure.
     
     Best regards,
-    Gouda Team
+    HealtMate Team
   `;
 
     await this.send(

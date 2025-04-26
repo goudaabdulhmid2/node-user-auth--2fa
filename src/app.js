@@ -5,6 +5,7 @@ const xss = require("xss-clean");
 const compression = require("compression");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
+const path = require("path");
 
 const passport = require("./config/passport");
 const ApiError = require("./utlis/ApiError");
@@ -13,6 +14,9 @@ const authRouter = require("./routes/authRouter");
 const globalErrorHandler = require("./controllers/errorController");
 
 const app = express();
+
+// Serving static files from the /uploads directory
+app.use(express.static(path.join(__dirname, "uploads")));
 
 app.use(express.json({ limit: "100mb" }));
 app.use(
@@ -42,15 +46,6 @@ const limiter = rateLimit({
   message: "Too many requests from this IP, please try again in an 15 minutes!",
 });
 app.use("/api", limiter);
-
-// Authentication-based rate limiter (login attempts)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  keyGenerator: (req, res) => (req.user ? req.user.id : req.ip),
-  message: "Too many login attempts. Please try again later.",
-});
-app.use("/api/v1/auth/login", authLimiter);
 
 // Apply data senitization
 app.use(mongoSanitize());

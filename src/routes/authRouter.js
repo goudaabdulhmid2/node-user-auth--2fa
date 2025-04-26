@@ -1,5 +1,6 @@
 const express = require("express");
 const passport = require("passport");
+const rateLimit = require("express-rate-limit");
 
 const {
   signup,
@@ -32,9 +33,18 @@ const {
   verifyRecoveryValidator,
   forgetPasswordValidator,
   resetPasswordValidator,
+  verifyEmailValidator,
 } = require("../utlis/validator/authValidation");
 
 const router = express.Router();
+
+// Stricter limiter for sensitive routes
+const strictLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 attempts
+  keyGenerator: (req, res) => (req.user ? req.user.id : req.ip),
+  message: "Too many attempts. Please try again in 1 minute.",
+});
 
 // ======================
 // Public Routes
@@ -68,17 +78,32 @@ router.get(
 );
 
 // Core Auth
-router.post("/signup", signupValidator, signup);
-router.post("/login", loginValidator, login);
+router.post("/signup", strictLimiter, signupValidator, signup);
+router.post("/login", strictLimiter, loginValidator, login);
 router.post("/refresh-token", refreshAccessToken);
 
 // Reset password
-router.post("/forgot-password", forgetPasswordValidator, forgetPassword);
-router.post("/verify-reset-code", verifyRecoveryValidator, verifyResetCode);
-router.post("/reset-password", resetPasswordValidator, resetPassword);
+router.post(
+  "/forgot-password",
+  strictLimiter,
+  forgetPasswordValidator,
+  forgetPassword
+);
+router.post(
+  "/verify-reset-code",
+  strictLimiter,
+  verifyRecoveryValidator,
+  verifyResetCode
+);
+router.post(
+  "/reset-password",
+  strictLimiter,
+  resetPasswordValidator,
+  resetPassword
+);
 
 // verify email
-router.get("/verify-email/:token", verifyEmail);
+router.post("/verify-email", strictLimiter, verifyEmailValidator, verifyEmail);
 router.post("/resend-verification-email", resendVerificationEmail);
 
 // ======================
@@ -88,7 +113,7 @@ router.use(protect);
 
 // 2FA Management
 router.post("/2fa", setup2FA);
-router.post("/2fa/verify", verify2FAValidator, verify2FA);
+router.post("/2fa/verify", strictLimiter, verify2FAValidator, verify2FA);
 router.delete("/2fa", reset2FA);
 
 // Logout
@@ -98,6 +123,7 @@ router.post("/logout", logout);
 router.post("/backup-codes", generateBackupCode);
 router.post(
   "/backup-codes/verify",
+  strictLimiter,
   verifyBackupCodeValidator,
   verifyBackupCode
 );
@@ -106,6 +132,7 @@ router.post(
 router.post("/2fa/recovery-code", requestRecoveryOTP);
 router.post(
   "/2fa/recovery-code/verify",
+  strictLimiter,
   verifyRecoveryValidator,
   verifyRecoveryOTP
 );
@@ -114,6 +141,7 @@ router.post(
 router.post("/2fa/recovery/request-sms", requestRecoverySMS);
 router.post(
   "/2fa/recovery/verify-sms",
+  strictLimiter,
   verifyRecoveryValidator,
   verifyRecoverySMS
 );

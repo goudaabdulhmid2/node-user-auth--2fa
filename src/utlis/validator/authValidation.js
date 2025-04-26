@@ -65,7 +65,7 @@ exports.signupValidator = [
     .withMessage("Brithdate is required.")
     .isDate()
     .withMessage("Please enter a valid date.")
-    .custom((val) => {
+    .custom((val, { req }) => {
       const today = new Date();
       const birthDate = new Date(val);
       const age = today.getFullYear() - birthDate.getFullYear();
@@ -136,8 +136,8 @@ exports.verifyRecoveryValidator = [
     .notEmpty()
     .withMessage("OTP is required.")
     .isNumeric()
-    .isLength({ min: 6, max: 6 })
-    .withMessage("OTP must be a 6-digit number."),
+    .isLength({ min: 5, max: 5 })
+    .withMessage("OTP must be a 5-digit number."),
 
   handleValidationErrors,
 ];
@@ -184,5 +184,22 @@ exports.resetPasswordValidator = [
       }
       return true;
     }),
+  handleValidationErrors,
+];
+
+// Email Verification
+exports.verifyEmailValidator = [
+  check("email")
+    .notEmpty()
+    .withMessage("Email is required.")
+    .isEmail()
+    .withMessage("Invalid email address.")
+    .normalizeEmail(),
+  check("otp")
+    .notEmpty()
+    .withMessage("OTP is required.")
+    .isNumeric()
+    .isLength({ min: 5, max: 5 })
+    .withMessage("OTP must be a 5-digit number."),
   handleValidationErrors,
 ];

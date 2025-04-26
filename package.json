@@ -26,6 +26,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.2",
     "nodemailer": "^6.10.0",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
@@ -33,10 +34,12 @@
     "passport-jwt": "^4.0.1",
     "qrcode": "^1.5.4",
     "redis": "^4.7.0",
+    "sharp": "^0.34.1",
     "slugify": "^1.6.6",
     "speakeasy": "^2.0.0",
     "stream": "^0.0.3",
     "twilio": "^5.4.3",
+    "uuid": "^11.1.0",
     "xss-clean": "^0.1.4"
   },
   "devDependencies": {

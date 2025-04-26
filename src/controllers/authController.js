@@ -17,7 +17,7 @@ const ApiError = require("../utlis/ApiError");
 const Email = require("../utlis/Email");
 const SMS = require("../utlis/SMS");
 
-const generateRandomCode = () => crypto.randomInt(100000, 999999).toString();
+const generateRandomCode = () => crypto.randomInt(10000, 99999).toString();
 
 /*
  **** Core Auth ****
@@ -46,17 +46,17 @@ exports.signup = catchAsync(async (req, res, next) => {
     age: req.body.age,
   });
 
-  // 3. Generate verification token
-  const verificationToken = genrateToken(newUser.id, false, "1h");
-  newUser.verificationToken = verificationToken;
-  newUser.verificationTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  // 3. Generate OTP
+  const otp = generateRandomCode();
+  newUser.emailVerificationOTP = User.hashBackupCode(otp);
+  newUser.emailVerificationOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  newUser.emailVerificationLastRequest = Date.now();
 
   await newUser.save({ validateBeforeSave: false });
 
   // 4. Send verification email
   try {
-    const url = `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${verificationToken}`;
-    await new Email(newUser, url).sendVerifyEmail();
+    await new Email(newUser, otp).sendVerifyEmail();
   } catch (err) {
     // Rollback on email failure
     await User.findByIdAndDelete(newUser._id);
@@ -67,48 +67,56 @@ exports.signup = catchAsync(async (req, res, next) => {
 
   res.status(201).json({
     status: "success",
-    message: "Signup successful!. Please verify your email.",
+    message: "Signup successful!. Please verify your email with the OTP sent.",
   });
 });
 
 // @desc Verify user email
-// @route GET /api/v1/auth/verify-email/:token
+// @route GET /api/v1/auth/verify-email
 // @access Public
 
 exports.verifyEmail = catchAsync(async (req, res, next) => {
-  const verificationToken = req.params.token;
+  const { email, otp } = req.body;
 
-  // 1. Verify token
-  const decoded = jwt.verify(verificationToken, process.env.JWT_SECRET);
-
-  // 2. Find user
+  // 1. Find user
   const user = await User.findOne({
-    _id: decoded.id,
-    verificationToken,
-    verificationTokenExpires: { $gt: Date.now() },
+    email,
+    emailVerificationOTPExpires: { $gt: Date.now() },
   });
 
   if (!user) {
-    return next(new ApiError("Invalid or expired token.", 400));
+    return next(new ApiError("Invalid or expired OTP.", 400));
   }
 
-  // 3. Check if user is already verified
+  // 2. Check if user is already verified
   if (user.isVerified) {
     return next(new ApiError("Email already verified.", 400));
   }
 
-  // 4. Update user and save
-  user.isVerified = true;
-  user.verificationToken = undefined;
-  user.verificationTokenExpires = undefined;
+  //  3. Check OTP attempts
+  if (user.emailVerificationAttempts >= 3) {
+    return next(
+      new ApiError("Too many attempts. Please request a new OTP.", 429)
+    );
+  }
 
-  // 5. Add email verified timestamp
+  // 4. Verify OTP
+  if (User.hashBackupCode(otp) !== user.emailVerificationOTP) {
+    user.emailVerificationAttempts += 1;
+    await user.save({ validateBeforeSave: false });
+    return next(new ApiError("Invalid OTP.", 400));
+  }
+
+  // 5. Update user and save
+  user.isVerified = true;
+  user.emailVerificationOTP = undefined;
+  user.emailVerificationOTPExpires = undefined;
+  user.emailVerificationAttempts = 0;
   user.emailVerifiedAt = Date.now();
 
-  // 6. Save user
   await user.save({ validateBeforeSave: false });
 
-  // 7. Send email verified
+  // 6. Send email verified
   await new Email(user, "").sendEmailVerified();
 
   res.status(200).json({
@@ -138,14 +146,39 @@ exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
     return next(new ApiError("Email already verified.", 400));
   }
 
-  // 3. Generate verification token
-  const verificationToken = genrateToken(user.id, false, "1h");
-  user.verificationToken = verificationToken;
+  // 3. Check rate limiting
+  const oneMinuteAgo = Date.now() - 60 * 1000;
+  if (
+    user.emailVerificationLastRequest &&
+    user.emailVerificationLastRequest > oneMinuteAgo
+  ) {
+    return next(
+      new ApiError("Please wait before requesting another OTP.", 429)
+    );
+  }
+
+  // 4. Generate OTP
+  const otp = generateRandomCode();
+  user.emailVerificationOTP = User.hashBackupCode(otp);
+  user.emailVerificationOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  user.emailVerificationLastRequest = Date.now();
+  user.emailVerificationAttempts = 0;
+
   await user.save({ validateBeforeSave: false });
 
-  // 4. Send verification email
-  const url = `${req.protocol}://${req.get("host")}/api/v1/verify-email/${verificationToken}`;
-  await new Email(user, url).sendVerifyEmail();
+  // 5. Send verification email
+  try {
+    await new Email(user, otp).sendVerifyEmail();
+  } catch (err) {
+    // Rollback on email failure
+    user.emailVerificationOTP = undefined;
+    user.emailVerificationOTPExpires = undefined;
+    user.emailVerificationLastRequest = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(
+      new ApiError("Error sending verification email. Try again later!", 500)
+    );
+  }
 
   res.status(200).json({
     status: "success",
