@@ -24,6 +24,8 @@ const {
   resetPassword,
   verifyEmail,
   resendVerificationEmail,
+  logoutAll,
+  reAuth
 } = require("../controllers/authController");
 const {
   signupValidator,
@@ -118,6 +120,9 @@ router.delete("/2fa", reset2FA);
 
 // Logout
 router.post("/logout", logout);
+
+// Logout from all devices
+router.post("/logout-all", reAuth, logoutAll);
 
 // Backup Codes
 router.post("/backup-codes", generateBackupCode);

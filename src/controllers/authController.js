@@ -350,10 +350,15 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
 
   // 2. Verify token
-  const decoded = await jwt.verify(token, process.env.JWT_SECRET);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return next(new ApiError("Invalid token", 401));
+  }
 
   // 3. Check user existence
-  const currentUser = await User.findById(decoded.id);
+  const currentUser = await User.findById(decoded.id).select("+password");
   if (!currentUser) {
     return next(new ApiError("User no longer exists.", 401));
   }
@@ -566,10 +571,11 @@ exports.verify2FA = catchAsync(async (req, res, next) => {
 
   if (!verified) return next(new ApiError("Invalid authentication code", 401));
 
-  // 2. Enable 2FA and save secret permanently
+  // 2. Enable 2FA and save secret permanently and update last verified timestamp
   user.twoFactorSecret = user.twoFactorSecret || user.twoFactorTempSecret;
   user.twoFactorEnabled = true;
   user.twoFactorTempSecret = undefined; // Remove temporary secret
+  user.last2FAVerifiedAt = Date.now();
   await user.save({ validateBeforeSave: false });
 
   // 3. Generate new JWT token with 2FA verified
