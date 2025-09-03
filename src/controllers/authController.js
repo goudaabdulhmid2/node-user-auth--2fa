@@ -43,7 +43,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     profileImage: req.body.profileImage,
     gender: req.body.gender,
     brithdate: req.body.brithdate,
-    age: req.body.age,
+    age: req.age,
   });
 
   // 3. Generate OTP
@@ -254,7 +254,7 @@ exports.login = catchAsync(async (req, res, next) => {
   });
 });
 
-// @desc Logout user and invalidate refresh token and clear cookies
+// @desc Logout user and invalidate current device/session refresh token and clear cookies
 // @route POST /api/v1/auth/logout
 // @access Private
 exports.logout = catchAsync(async (req, res, next) => {
@@ -273,8 +273,8 @@ exports.logout = catchAsync(async (req, res, next) => {
   res.clearCookie("jwt", cookieOptions);
   res.clearCookie("refreshToken", cookieOptions);
 
-  // 3. Invalidate all sessions
-  user.refreshToken = undefined;
+  // 3. Invalidate user refresh tokens
+  user.refreshTokens = user.refreshTokens.filter(rt => rt.token !== hashRefreshToken(req.cookies.refreshToken));
   user.lastLogout = Date.now();
   await user.save({ validateBeforeSave: false });
 
@@ -282,6 +282,58 @@ exports.logout = catchAsync(async (req, res, next) => {
     status: "success",
     message: "Logged out successfully",
   });
+});
+
+// @desc logout from all devices/sessions
+// @route POST /api/v1/auth/logout-all
+// @access Private
+exports.logoutAll = catchAsync(async (req, res, next) => {
+  const user = req.user;
+
+  // 1. Add security headers, clear browser site data
+  res.setHeader("Clear-Site-Data", '"cookies", "storage"');
+
+  // 2. Clear cookies with same options as set
+  const cookieOptions = {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "strict",
+  };
+
+  res.clearCookie("jwt", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  // 3. Invalidate user refresh tokens
+  user.refreshTokens = [];
+  user.lastLogout = Date.now();
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: "success",
+    message: "Logged out successfully",
+  });
+});
+
+// @desc Re-authentication (asking for password again)
+// @route Middleware (before sensitive operations)
+// @access Private
+exports.reAuth = catchAsync(async (req, res, next) => {
+  const user = req.user;
+  const { password } = req.body;
+
+  // 1. Check if password is provided
+  if (!password) {
+    return next(new ApiError("Please provide your password", 400));
+  }
+
+  // 2. Check if password is correct
+  const isCorrect = await user.correctPassword(password, user.password);
+  if (!isCorrect) {
+    return next(new ApiError("Incorrect password", 401));
+  }
+
+  next();
+
 });
 
 // @desc Protect routes by requiring authentication
@@ -360,37 +412,77 @@ exports.restrictTo = (...roles) => {
 // @route POST /api/v1/auth/refresh-token
 // @access Private
 exports.refreshAccessToken = catchAsync(async (req, res, next) => {
-  const token = req.headers.authorization?.startsWith("Bearer")
-    ? req.headers.authorization.split(" ")[1]
-    : req.cookies.jwt;
-
   const refreshTokenCookie = req.cookies.refreshToken;
+
   if (!refreshTokenCookie) {
     return next(new ApiError("No refresh token provided", 401));
   }
 
-  // check user
+  // 1. Hash and validate refresh token against user's refreshTokens array
   const hashedToken = hashRefreshToken(refreshTokenCookie);
-  const user = await User.findOne({ refreshToken: hashedToken });
+  const user = await User.findOne({ refreshTokens: { $elemMatch: { token: hashedToken } } });
+
   if (!user) {
-    return next(new ApiError("Invalid refresh token.", 401));
+    // Do not reveal if token is invalid or user not found
+    return next(new ApiError("Authentication failed", 401));
   }
 
-  const decoded = await jwt.verify(token, process.env.JWT_SECRET);
+  // 2. Check user status
+  if (!user.active) {
+    return next(new ApiError("Account is deactivated", 401));
+  }
 
-  // create newOne
-  const newAccessToken = createToken(
-    user,
-    req,
-    res,
-    user.twoFactorEnabled ? decoded.verified2FA : false
-  );
+  if (!user.isVerified) {
+    return next(new ApiError("Account is not verified", 401));
+  }
+
+  // 3. Check 2FA status from current access token (if present)
+  const currentToken = req.headers.authorization?.startsWith('Bearer') ?
+    req.headers.authorization.split(" ")[1] : req.cookies.jwt;
+
+  let verified2FA = false;
+  let accessTokenUserId = null;
+
+  if (currentToken) {
+    try {
+      const decoded = jwt.verify(currentToken, process.env.JWT_SECRET);
+      verified2FA = decoded.verified2FA === true;
+      accessTokenUserId = decoded.id;
+    } catch (err) {
+      // Token is expired/invalid, skip 2FA status from token
+      accessTokenUserId = null;
+    }
+  }
+
+  // 3b. Check user ID consistency between access and refresh tokens
+  if (accessTokenUserId && String(accessTokenUserId) !== String(user._id)) {
+    return next(new ApiError("Authentication failed", 401));
+  }
+
+  // 4. For 2FA enabled users, require re-authentication only if last2FAVerifiedAt is older than 24 hours
+  if (user.twoFactorEnabled) {
+    const now = Date.now();
+    const lastVerified = user.last2FAVerifiedAt ? user.last2FAVerifiedAt.getTime() : 0;
+    const hours24 = 24 * 60 * 60 * 1000;
+    if (now - lastVerified > hours24) {
+      return next(new ApiError("Two-factor authentication required. Please re-authenticate.", 401));
+    }
+  }
+
+  // 5. Remove the old refresh token
+  user.refreshTokens = user.refreshTokens.filter(rt => rt.token !== hashedToken);
+  await user.save({ validateBeforeSave: false });
+
+  // 6. Generate new tokens
+  const newAccessToken = createToken(user, req, res, verified2FA);
   await refreshToken(user, req, res);
 
   res.status(200).json({
     status: "success",
     token: newAccessToken,
   });
+
+
 });
 
 // @desc Handle login via third-party social providers (Google/Facebook)
@@ -554,6 +646,9 @@ exports.verifyBackupCode = catchAsync(async (req, res, next) => {
     return next(new ApiError("Invalid or expired backup code", 401));
   }
 
+  user.last2FAVerifiedAt = Date.now();
+
+  // Remove used code and update last verified timestamp
   await user.save({ validateBeforeSave: false });
 
   // Generate new token with 2FA verified
@@ -638,10 +733,12 @@ exports.verifyRecoveryOTP = catchAsync(async (req, res, next) => {
     return next(new ApiError("Invalid OTP", 401));
   }
 
-  // Clear OTP after successful
+  // Clear OTP after successful and update last verified timestamp
   user.twoFactorRecoveryOTP = undefined;
   user.twoFactorRecoveryExpires = undefined;
   user.twoFactorLastRequest = undefined;
+  user.last2FAVerifiedAt = Date.now();
+
   await user.save({ validateBeforeSave: true });
 
   // Genrate new Token with 2FA verified
@@ -732,10 +829,11 @@ exports.verifyRecoverySMS = catchAsync(async (req, res, next) => {
     return next(new ApiError("Invalid OTP", 401));
   }
 
-  // Clear OTP
+  // Clear OTP and update last verified timestamp
   user.twoFactorRecoveryOTP = undefined;
   user.twoFactorRecoveryExpires = undefined;
   user.twoFactorLastRequest = undefined;
+  user.last2FAVerifiedAt = Date.now();
   await user.save({ validateBeforeSave: true });
 
   // Genrate JWT with 2FA verified

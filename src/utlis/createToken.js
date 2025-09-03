@@ -19,7 +19,7 @@ const generateTempToken = (id) =>
       purpose: "2fa-verification",
     },
     process.env.JWT_SECRET,
-    { expiresIn: "5m" }
+    { expiresIn: "10m" }
   );
 
 const generateRefreshToken = () => crypto.randomBytes(32).toString("hex");
@@ -56,7 +56,16 @@ const refreshToken = catchAsync(async (user, req, res) => {
   };
   res.cookie("refreshToken", newRefreshToken, cookieOptionsForRefersh);
 
-  user.refreshToken = hashRefreshToken(newRefreshToken);
+  // Use User-Agent header for device info
+  const userAgent = req.headers["user-agent"] || "unknown";
+
+  user.refreshTokens.push({
+    token: hashRefreshToken(newRefreshToken),
+    device: userAgent,
+    ip: req.ip,
+    createdAt: Date.now(),
+  });
+
   await user.save({ validateBeforeSave: false });
 });
 

@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const slugify = require("slugify");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { type } = require("os");
 
 const userSchema = new mongoose.Schema(
   {
@@ -64,11 +65,19 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    refreshToken: String,
+    refreshTokens: [
+      {
+        token: String,
+        device: String,
+        ip: String,
+        createdAt: { type: Date, default: Date.now }
+
+      }
+    ],
     role: {
       type: String,
-      enum: ["student", "admin"],
-      default: "student",
+      enum: ["patient", "admin", "doctor"],
+      default: "patient",
     },
     active: {
       type: Boolean,
@@ -109,6 +118,7 @@ const userSchema = new mongoose.Schema(
     twoFactorRecoveryOTP: String, // OTP for email/SMS fallback
     twoFactorRecoveryExpires: Date, // OTP expiration time
     twoFactorLastRequest: Date, // Track last request time
+    last2FAVerifiedAt: Date,
   },
   {
     timestamps: true,
